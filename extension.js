@@ -76,7 +76,8 @@ export default class BatteryStatusExtension extends Extension {
         // Remove old menu items
         this._indicator.menu.removeAll();
 
-        let highestPercentage = 0;
+        // Variable to track if any battery needs a low warning
+        let lowBattery = false;
 
         batteryData.forEach((line) => {
           if (line) {
@@ -90,24 +91,27 @@ export default class BatteryStatusExtension extends Extension {
               let batteryName = match[1];
               let percentage = parseInt(match[2]);
 
-              // Update highest percentage
-              if (percentage > highestPercentage) {
-                highestPercentage = percentage;
-              }
-
-              // Check for low battery
-              if (percentage < 20) {
-                this._showLowBatteryNotification(batteryName, percentage);
+              // Only focus on BAT0 for low battery notification and icon change
+              if (batteryName === "BAT0") {
+                if (percentage < 20) {
+                  this._showLowBatteryNotification(batteryName, percentage);
+                  lowBattery = true; // Set the flag to trigger low battery behavior
+                }
+                // Update icon if BAT0 is below 20% directly
+                if (percentage < 20) {
+                  this._icon.icon_name = "battery-low-symbolic";
+                }
               }
             }
           }
         });
 
-        // Update icon based on the highest battery percentage
-        let iconName = this._updateBatteryIcon(highestPercentage);
-        this._icon.icon_name = iconName;
+        // If no battery is below 20%, set the icon based on other criteria (if desired)
+        if (!lowBattery) {
+          this._icon.icon_name = "battery-full-symbolic"; // Default icon when no battery is critically low
+        }
 
-        log(`Battery icon updated to: ${iconName}`);
+        log(`Battery icon updated based on BAT0: ${this._icon.icon_name}`);
       } else {
         log(
           "Failed to fetch battery status: " + String.fromCharCode(...stderr)
