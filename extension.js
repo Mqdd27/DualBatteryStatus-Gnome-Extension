@@ -61,9 +61,11 @@ export default class BatteryStatusExtension extends Extension {
     log("Fetching battery status...");
 
     try {
-      let [success, stdout, stderr, exitCode] = GLib.spawn_command_line_sync(
-        "/home/kimp/.local/share/gnome-shell/extensions/test@mqdd.cloud/test.sh"
-      );
+      // Path to the script using `this.dir`
+      const scriptPath = `${this.dir.get_path()}/test.sh`;
+
+      let [success, stdout, stderr, exitCode] =
+        GLib.spawn_command_line_sync(scriptPath);
 
       if (success && exitCode === 0) {
         let batteryData = String.fromCharCode(...stdout)
@@ -71,39 +73,37 @@ export default class BatteryStatusExtension extends Extension {
           .split("\n");
         log("Battery Data: " + batteryData.join(", "));
 
-        this._menu.removeAll();
+        // Remove old menu items
+        this._indicator.menu.removeAll();
 
         let highestPercentage = 0;
-        let anyBatteryBelow20 = false;
 
         batteryData.forEach((line) => {
           if (line) {
             let menuItem = new PopupMenu.PopupMenuItem(line);
             log("Adding menu item: " + line);
-            this._menu.addMenuItem(menuItem);
+            this._indicator.menu.addMenuItem(menuItem);
 
+            // Extract battery percentage and name
             let match = line.match(/(BAT\d+):\s(\d+)%/);
             if (match) {
               let batteryName = match[1];
               let percentage = parseInt(match[2]);
 
+              // Update highest percentage
               if (percentage > highestPercentage) {
                 highestPercentage = percentage;
               }
 
+              // Check for low battery
               if (percentage < 20) {
-                anyBatteryBelow20 = true;
                 this._showLowBatteryNotification(batteryName, percentage);
               }
             }
           }
         });
 
-        // Reset notification flag if all batteries are above 20%
-        if (!anyBatteryBelow20) {
-          this._lowBatteryNotified = false;
-        }
-
+        // Update icon based on the highest battery percentage
         let iconName = this._updateBatteryIcon(highestPercentage);
         this._icon.icon_name = iconName;
 
